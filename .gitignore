@@ -1,0 +1,30 @@
+# Large model weights (download via scripts/download-model.sh)
+models/
+!models/.gitkeep
+
+# Local audio samples and transcription outputs
+samples/*
+!samples/.gitkeep
+outputs/
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.m4a
+*.txt
+*.srt
+*.vtt
+*.json
+*.csv
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# HF / OS junk
+.cache/
+.DS_Store
+*.incomplete
+*.lock
+!uv.lock

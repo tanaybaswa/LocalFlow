@@ -1,0 +1,9 @@
+[project]
+name = "local-speech-to-text"
+version = "0.1.0"
+description = "Local Whisper speech-to-text (whisper.cpp + Gradio record UI)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "gradio>=6.20.0",
+]

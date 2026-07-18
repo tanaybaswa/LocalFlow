@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Local STT Evaluation — Whisper large-v3 on Apple M5 Max</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+/* report-base.css — Minimal report layout system. Include in full in every report. */
+
+:root {
+  --text-primary: #1a1a1a;
+  --text-secondary: #5c5c5c;
+  --text-muted: #8a8a8a;
+  --border: #e5e5e5;
+  --border-strong: #cccccc;
+  --bg: #ffffff;
+  --bg-subtle: #fafafa;
+  --accent: #0f766e;
+  --accent-muted: rgba(15, 118, 110, 0.08);
+
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+
+  --max-width: 900px;
+  --page-padding: 48px;
+  --section-gap: 56px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--bg);
+  line-height: 1.6;
+}
+
+.report {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 64px var(--page-padding) 96px;
+}
+
+/* === Title block === */
+.report-header {
+  margin-bottom: var(--section-gap);
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.report-header h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin-bottom: 16px;
+}
+
+.report-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.report-meta dt {
+  font-weight: 500;
+  color: var(--text-muted);
+  display: inline;
+}
+
+.report-meta dt::after {
+  content: ': ';
+}
+
+.report-meta dd {
+  display: inline;
+  margin: 0;
+}
+
+.report-meta dd:not(:last-child)::after {
+  content: '';
+}
+
+/* === Sections === */
+section {
+  margin-bottom: var(--section-gap);
+}
+
+section h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+section h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 24px 0 8px;
+}
+
+p {
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+p.lead {
+  font-size: 1.0625rem;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+ul, ol {
+  margin: 0 0 16px 1.25rem;
+}
+
+li {
+  margin-bottom: 6px;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* === Metrics === */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 24px;
+  margin: 24px 0;
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.metric {
+  text-align: left;
+}
+
+.metric-value {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  font-family: var(--font-mono);
+}
+
+.metric-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.metric-delta {
+  font-size: 0.8125rem;
+  margin-top: 2px;
+}
+
+.metric-delta.positive { color: #15803d; }
+.metric-delta.negative { color: #b91c1c; }
+
+/* === Tables === */
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+thead th {
+  text-align: left;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--border-strong);
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+td.num, th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+td.mono, th.mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+/* === Badges === */
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  white-space: nowrap;
+}
+
+.badge.critical { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+.badge.high     { border-color: #fdba74; background: #fff7ed; color: #9a3412; }
+.badge.medium   { border-color: #fde047; background: #fefce8; color: #854d0e; }
+.badge.low      { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.badge.info     { border-color: #99f6e4; background: #f0fdfa; color: #115e59; }
+.badge.pass     { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.badge.fail     { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+
+/* === Figures & charts === */
+figure {
+  margin: 24px 0;
+}
+
+.figure-chart {
+  position: relative;
+  height: 320px;
+  margin: 8px 0 4px;
+}
+
+figcaption {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+figcaption .source {
+  color: var(--text-muted);
+}
+
+/* === Callouts === */
+.callout {
+  border-left: 3px solid var(--accent);
+  padding: 12px 16px;
+  margin: 20px 0;
+  background: var(--accent-muted);
+  font-size: 0.9375rem;
+}
+
+.callout.warning {
+  border-left-color: #d97706;
+  background: #fffbeb;
+}
+
+.callout.danger {
+  border-left-color: #dc2626;
+  background: #fef2f2;
+}
+
+/* === Code / pre === */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.8125em;
+  background: var(--bg-subtle);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 16px 0;
+  line-height: 1.5;
+}
+
+/* === Appendix === */
+.appendix {
+  margin-top: 64px;
+  padding-top: 32px;
+  border-top: 1px solid var(--border);
+}
+
+.appendix h2 {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+/* === Footer === */
+.report-footer {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* === Print === */
+@media print {
+  body { background: white; }
+  .report { padding: 0; max-width: none; }
+  section { page-break-inside: avoid; }
+  figure { page-break-inside: avoid; }
+  .metric-grid { page-break-inside: avoid; }
+  a { color: inherit; text-decoration: none; }
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+  </style>
+</head>
+<body>
+  <article class="report">
+
+    <header class="report-header">
+      <h1>Local speech-to-text evaluation: Whisper large-v3 on Apple M5 Max</h1>
+      <dl class="report-meta">
+        <dt>Date</dt><dd>July 18, 2026</dd>
+        <dt>Version</dt><dd>1.0</dd>
+        <dt>Project</dt><dd>local-speech-to-text</dd>
+        <dt>Runtime</dt><dd>whisper.cpp 1.9.1 · Metal</dd>
+        <dt>Model</dt><dd>ggml-large-v3.bin</dd>
+        <dt>Audience</dt><dd>Technical (internal)</dd>
+      </dl>
+    </header>
+
+    <!-- === SECTION: Summary === -->
+    <section id="summary">
+      <h2>Summary</h2>
+      <p class="lead">
+        On an Apple M5 Max (36&nbsp;GB unified memory), OpenAI Whisper <strong>large-v3</strong> via whisper.cpp
+        sustains approximately <strong>12–17× realtime</strong> across lecture, tutorial, and podcast workloads.
+        A 15-minute interview segment finished in ~62&nbsp;s wall time. For product decisions, transcription
+        latency is no longer the binding constraint — quality ceiling and UX (record → transcript) matter more
+        than trading down to a smaller model.
+      </p>
+      <div class="callout">
+        <strong>Decision framing:</strong> Keep large-v3 as the default local engine. Treat turbo / quantized
+        variants as optional fast paths, not as requirements to unlock interactive use.
+      </div>
+    </section>
+
+    <!-- === SECTION: Model selection === -->
+    <section id="model-selection">
+      <h2>Model selection</h2>
+      <p>
+        Goal: maximize transcription quality for local, on-device use without cloud dependency.
+        Hardware (M5 Max, 36&nbsp;GB, Metal 4, 32 GPU cores) removes memory as a practical limit for the
+        Whisper family.
+      </p>
+
+      <h3>Chosen model</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Upstream</td>
+              <td><a href="https://huggingface.co/openai/whisper-large-v3">openai/whisper-large-v3</a> (~1.54B params)</td>
+            </tr>
+            <tr>
+              <td>Runtime weights</td>
+              <td><code>ggml-large-v3.bin</code> from <a href="https://huggingface.co/ggerganov/whisper.cpp">ggerganov/whisper.cpp</a></td>
+            </tr>
+            <tr>
+              <td>Disk size</td>
+              <td class="num">2.9 GB</td>
+            </tr>
+            <tr>
+              <td>Precision</td>
+              <td>Full GGML (non-quantized) — max fidelity in the whisper.cpp catalog</td>
+            </tr>
+            <tr>
+              <td>Why this model</td>
+              <td>Highest accuracy tier in Whisper; fits easily in 36&nbsp;GB; speed still ≫ realtime on Metal</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Alternatives considered</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Candidate</th>
+              <th class="num">Approx. size</th>
+              <th>Role</th>
+              <th>Decision</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">tiny / tiny.en</td>
+              <td class="num">~32–78 MB</td>
+              <td>Edge / ultra-low latency</td>
+              <td><span class="badge info">Skipped</span> — quality too low for primary path</td>
+            </tr>
+            <tr>
+              <td class="mono">base / small</td>
+              <td class="num">~60–488 MB</td>
+              <td>Mobile / constrained devices</td>
+              <td><span class="badge info">Skipped</span> — unnecessary given hardware</td>
+            </tr>
+            <tr>
+              <td class="mono">large-v3-turbo</td>
+              <td class="num">~1.6 GB</td>
+              <td>Near-large quality, faster decode</td>
+              <td><span class="badge medium">Optional</span> — keep as speed knob if UI feels sluggish</td>
+            </tr>
+            <tr>
+              <td class="mono">large-v3-q5_0</td>
+              <td class="num">~1.1 GB</td>
+              <td>Quantized large-v3</td>
+              <td><span class="badge medium">Optional</span> — only if disk / load time matters</td>
+            </tr>
+            <tr>
+              <td class="mono">large-v3 (full)</td>
+              <td class="num">2.9 GB</td>
+              <td>Quality ceiling</td>
+              <td><span class="badge pass">Selected</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- === SECTION: Test setup === -->
+    <section id="test-setup">
+      <h2>Test setup</h2>
+
+      <h3>Hardware &amp; software</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Configuration</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Machine</td>
+              <td>MacBook Pro · Model Identifier Mac17,7</td>
+            </tr>
+            <tr>
+              <td>Chip</td>
+              <td>Apple M5 Max · 18 CPU (6P+12E) · 32 GPU cores · Metal 4</td>
+            </tr>
+            <tr>
+              <td>Memory</td>
+              <td>36 GB unified · Metal recommended working set ~30.2 GB</td>
+            </tr>
+            <tr>
+              <td>Runtime</td>
+              <td><code>whisper-cli</code> from Homebrew <code>whisper-cpp</code> 1.9.1 (ggml Metal backend)</td>
+            </tr>
+            <tr>
+              <td>Decode settings</td>
+              <td><code>--language en</code> · <code>--threads 8</code> · <code>--no-prints</code></td>
+            </tr>
+            <tr>
+              <td>Audio prep</td>
+              <td>16 kHz mono PCM WAV via ffmpeg (yt-dlp → extract → trim)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Workloads</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Clip ID</th>
+              <th>Source</th>
+              <th>Content type</th>
+              <th class="num">Duration</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">fireship</td>
+              <td>Fireship — 100 Seconds of Python</td>
+              <td>Fast-paced tutorial</td>
+              <td class="num">2.39 min</td>
+            </tr>
+            <tr>
+              <td class="mono">3b1b_2min</td>
+              <td>3Blue1Brown — Neural Networks (first 2 min)</td>
+              <td>Lecture / explanatory</td>
+              <td class="num">2.00 min</td>
+            </tr>
+            <tr>
+              <td class="mono">3b1b_5min</td>
+              <td>Same source, first 5 min</td>
+              <td>Lecture / explanatory</td>
+              <td class="num">5.00 min</td>
+            </tr>
+            <tr>
+              <td class="mono">3b1b_10min</td>
+              <td>Same source, first 10 min</td>
+              <td>Lecture / explanatory</td>
+              <td class="num">10.00 min</td>
+            </tr>
+            <tr>
+              <td class="mono">lex_15min</td>
+              <td>Lex Fridman × Sam Altman (first 15 min)</td>
+              <td>Dense conversational podcast</td>
+              <td class="num">15.00 min</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Metrics</h3>
+      <ul>
+        <li><strong>Wall time</strong> — end-to-end <code>whisper-cli</code> process time (includes model load + decode)</li>
+        <li><strong>× realtime</strong> — audio duration ÷ wall time (higher is faster)</li>
+        <li><strong>Transcript chars</strong> — output size as a rough density check (not a WER metric)</li>
+      </ul>
+      <p>
+        This run measures <em>throughput / latency</em>, not word-error-rate. Qualitative spot-checks on
+        transcript openings looked coherent for all clips.
+      </p>
+    </section>
+
+    <!-- === SECTION: Results overview === -->
+    <section id="results-overview">
+      <h2>Results overview</h2>
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-value">14.98×</div>
+          <div class="metric-label">Median × realtime</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">17.53×</div>
+          <div class="metric-label">Peak × realtime (10 min lecture)</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">61.7 s</div>
+          <div class="metric-label">Wall time for 15 min podcast</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">2.9 GB</div>
+          <div class="metric-label">Model on disk</div>
+        </div>
+      </div>
+      <p>
+        Across five clips (2.0–15.0 minutes), wall time scaled roughly linearly with audio length.
+        Lecture-style speech (3b1b) peaked near 17.5×; denser podcast speech (Lex) landed around 14.6× —
+        still well above realtime.
+      </p>
+    </section>
+
+    <!-- === SECTION: Detailed results === -->
+    <section id="detailed-results">
+      <h2>Detailed results</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Clip</th>
+              <th class="num">Audio (s)</th>
+              <th class="num">Wall (s)</th>
+              <th class="num">× realtime</th>
+              <th class="num">Chars</th>
+              <th class="num">ms / audio-s</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">fireship</td>
+              <td class="num">143.36</td>
+              <td class="num">12.32</td>
+              <td class="num">11.64</td>
+              <td class="num">2,815</td>
+              <td class="num">85.9</td>
+            </tr>
+            <tr>
+              <td class="mono">3b1b_2min</td>
+              <td class="num">120.00</td>
+              <td class="num">8.01</td>
+              <td class="num">14.98</td>
+              <td class="num">2,116</td>
+              <td class="num">66.8</td>
+            </tr>
+            <tr>
+              <td class="mono">3b1b_5min</td>
+              <td class="num">300.00</td>
+              <td class="num">17.20</td>
+              <td class="num">17.44</td>
+              <td class="num">4,927</td>
+              <td class="num">57.3</td>
+            </tr>
+            <tr>
+              <td class="mono">3b1b_10min</td>
+              <td class="num">600.00</td>
+              <td class="num">34.23</td>
+              <td class="num">17.53</td>
+              <td class="num">10,088</td>
+              <td class="num">57.0</td>
+            </tr>
+            <tr>
+              <td class="mono">lex_15min</td>
+              <td class="num">900.00</td>
+              <td class="num">61.74</td>
+              <td class="num">14.58</td>
+              <td class="num">14,405</td>
+              <td class="num">68.6</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        <span class="source" style="color: var(--text-muted); font-size: 0.8125rem;">
+          Source: <code>outputs/bench/results.tsv</code> · wall clock via process timing around <code>whisper-cli</code>.
+        </span>
+      </p>
+
+      <figure>
+        <div class="figure-chart">
+          <canvas id="chart-wall-vs-duration"></canvas>
+        </div>
+        <figcaption>
+          Figure 1. Wall time vs audio duration. Near-linear scaling; 15&nbsp;min audio ≈ 1&nbsp;min wall.
+          <span class="source">Source: bench run 2026-07-18.</span>
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="figure-chart">
+          <canvas id="chart-xrealtime"></canvas>
+        </div>
+        <figcaption>
+          Figure 2. Throughput (× realtime) by workload. Lecture clips outperform dense podcast / rapid tutorial speech.
+          <span class="source">Source: bench run 2026-07-18.</span>
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- === SECTION: Analysis === -->
+    <section id="analysis">
+      <h2>Analysis</h2>
+
+      <h3>Throughput is product-ready</h3>
+      <p>
+        Interactive transcription (record 1–3 minutes → wait for text) should feel near-instant after
+        stop: expected wall times of ~5–15&nbsp;s for typical utterances on this stack. Batch jobs
+        (podcast episode, lecture) complete at roughly <strong>one minute of compute per ~15 minutes of audio</strong>.
+      </p>
+
+      <h3>Content type affects × realtime</h3>
+      <ul>
+        <li><strong>Explanatory lecture (3b1b):</strong> highest throughput (~15–17.5×) — clearer pacing, fewer overlaps.</li>
+        <li><strong>Dense interview (Lex):</strong> ~14.6× — still strong; more continuous speech and turn-taking.</li>
+        <li><strong>Fast tutorial (Fireship):</strong> lowest of the set (~11.6×) — rapid delivery increases decode work per second of audio.</li>
+      </ul>
+
+      <h3>What this does <em>not</em> measure</h3>
+      <ul>
+        <li>Word error rate (WER) / proper ASR accuracy benchmarks</li>
+        <li>Cold-start vs warm model-resident latency (each run spawned a fresh <code>whisper-cli</code>)</li>
+        <li>Streaming / partial hypotheses (batch file mode only)</li>
+        <li>Speaker diarization, timestamps quality, or non-English</li>
+        <li>Concurrent jobs or thermal throttling under sustained load</li>
+      </ul>
+
+      <div class="callout warning">
+        Wall times include model load. A long-lived server process (<code>whisper-server</code>) or in-process
+        Metal session would improve first-token / short-clip latency further. That is the main optimization
+        lever if a native app feels “slow on short recordings.”
+      </div>
+    </section>
+
+    <!-- === SECTION: Conclusions === -->
+    <section id="conclusions">
+      <h2>Conclusions &amp; recommendations</h2>
+      <ol>
+        <li>
+          <strong>Keep <code>ggml-large-v3.bin</code> as default.</strong>
+          Hardware headroom and measured throughput justify the quality ceiling.
+        </li>
+        <li>
+          <strong>Do not block the next app on a smaller model.</strong>
+          Speed is already past the interactive threshold for batch STT.
+        </li>
+        <li>
+          <strong>Next app focus should be UX and integration:</strong>
+          record → transcript → edit/copy/export; optional always-on <code>whisper-server</code> to remove per-request load cost.
+        </li>
+        <li>
+          <strong>Optional follow-ups (not blockers):</strong>
+          WER on a labeled set; A/B vs <code>large-v3-turbo</code>; streaming mic path; diarization for meetings.
+        </li>
+      </ol>
+      <p>
+        <span class="badge pass">Go</span> for building the next product surface on this stack.
+        Treat model choice as settled unless accuracy tests later prove otherwise.
+      </p>
+    </section>
+
+    <!-- === SECTION: Appendix === -->
+    <section id="appendix" class="appendix">
+      <h2>Appendix</h2>
+
+      <h3>A. Raw results (TSV)</h3>
+<pre>file        audio_sec   wall_sec  x_realtime  chars
+fireship    143.360000  12.320    11.64       2815
+3b1b_2min   120.000000  8.012     14.98       2116
+3b1b_5min   300.000000  17.201    17.44       4927
+3b1b_10min  600.000000  34.225    17.53       10088
+lex_15min   900.000000  61.742    14.58       14405</pre>
+
+      <h3>B. Reproducibility</h3>
+<pre># Model
+hf download ggerganov/whisper.cpp ggml-large-v3.bin --local-dir models
+
+# Example clip (after yt-dlp + ffmpeg trim to 16 kHz mono WAV)
+whisper-cli \
+  --model models/ggml-large-v3.bin \
+  --file samples/bench/lex_15min.wav \
+  --language en \
+  --threads 8 \
+  --no-prints \
+  --output-txt \
+  --output-file outputs/bench/lex_15min</pre>
+
+      <h3>C. Artifact paths</h3>
+      <ul>
+        <li>Project: <code>local-speech-to-text/</code></li>
+        <li>Model: <code>models/ggml-large-v3.bin</code></li>
+        <li>Bench audio: <code>samples/bench/</code></li>
+        <li>Transcripts: <code>outputs/bench/*.txt</code></li>
+        <li>Results table: <code>outputs/bench/results.tsv</code></li>
+        <li>UI (Gradio): <code>./scripts/run-ui.sh</code> → http://127.0.0.1:7860</li>
+      </ul>
+
+      <h3>D. Related stack notes</h3>
+      <ul>
+        <li>CLI path: <code>./scripts/transcribe.sh</code></li>
+        <li>Smoke test: JFK sample (~2&nbsp;s wall on Metal) — sanity check only</li>
+        <li>HF CLI authenticated as <code>tanay-ml</code> for model fetch</li>
+      </ul>
+    </section>
+
+    <footer class="report-footer">
+      <p>local-speech-to-text · Evaluation / benchmark summary · July 18, 2026 · Internal technical</p>
+    </footer>
+
+  </article>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script>
+    const PALETTE = [
+      '#0f766e', // teal (brand accent)
+      '#2563eb',
+      '#d97706',
+      '#64748b',
+    ];
+
+    Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = '#5c5c5c';
+    Chart.defaults.plugins.legend.labels.boxWidth = 12;
+    Chart.defaults.plugins.legend.labels.padding = 16;
+    Chart.defaults.scale.grid.color = '#f0f0f0';
+    Chart.defaults.scale.grid.drawBorder = false;
+    Chart.defaults.scale.ticks.padding = 8;
+
+    const clips = [
+      { id: 'fireship', audioMin: 143.36 / 60, wall: 12.320, xrt: 11.64 },
+      { id: '3b1b_2min', audioMin: 2, wall: 8.012, xrt: 14.98 },
+      { id: '3b1b_5min', audioMin: 5, wall: 17.201, xrt: 17.44 },
+      { id: '3b1b_10min', audioMin: 10, wall: 34.225, xrt: 17.53 },
+      { id: 'lex_15min', audioMin: 15, wall: 61.742, xrt: 14.58 },
+    ];
+
+    new Chart(document.getElementById('chart-wall-vs-duration'), {
+      type: 'line',
+      data: {
+        labels: clips.map(c => c.id),
+        datasets: [
+          {
+            label: 'Wall time (s)',
+            data: clips.map(c => c.wall),
+            borderColor: PALETTE[0],
+            backgroundColor: 'transparent',
+            tension: 0.2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            yAxisID: 'y',
+          },
+          {
+            label: 'Audio duration (min)',
+            data: clips.map(c => c.audioMin),
+            borderColor: PALETTE[3],
+            backgroundColor: 'transparent',
+            borderDash: [4, 4],
+            tension: 0.2,
+            pointRadius: 4,
+            yAxisID: 'y1',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          title: {
+            display: true,
+            text: 'Wall time scales with audio length',
+            align: 'start',
+            font: { size: 13, weight: '600' },
+            color: '#1a1a1a',
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Wall time (seconds)' },
+            position: 'left',
+          },
+          y1: {
+            beginAtZero: true,
+            title: { display: true, text: 'Audio duration (minutes)' },
+            position: 'right',
+            grid: { drawOnChartArea: false },
+          },
+          x: { title: { display: true, text: 'Clip' } },
+        },
+      },
+    });
+
+    new Chart(document.getElementById('chart-xrealtime'), {
+      type: 'bar',
+      data: {
+        labels: clips.map(c => c.id),
+        datasets: [{
+          label: '× realtime',
+          data: clips.map(c => c.xrt),
+          backgroundColor: PALETTE[0],
+          borderRadius: 2,
+          maxBarThickness: 48,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: 'Throughput by workload (× realtime)',
+            align: 'start',
+            font: { size: 13, weight: '600' },
+            color: '#1a1a1a',
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: '× realtime (higher = faster)' },
+          },
+          x: { title: { display: true, text: 'Clip' } },
+        },
+      },
+    });
+  </script>
+</body>
+</html>
