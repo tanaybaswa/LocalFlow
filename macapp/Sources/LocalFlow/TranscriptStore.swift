@@ -4,11 +4,24 @@ struct TranscriptEntry: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     let text: String
     let createdAt: Date
+    let targetApplication: String?
+    let pasteMethod: String?
+    let pasteSucceeded: Bool?
 
-    init(id: UUID = UUID(), text: String, createdAt: Date = Date()) {
+    init(
+        id: UUID = UUID(),
+        text: String,
+        createdAt: Date = Date(),
+        targetApplication: String? = nil,
+        pasteMethod: String? = nil,
+        pasteSucceeded: Bool? = nil
+    ) {
         self.id = id
         self.text = text
         self.createdAt = createdAt
+        self.targetApplication = targetApplication
+        self.pasteMethod = pasteMethod
+        self.pasteSucceeded = pasteSucceeded
     }
 }
 
@@ -28,10 +41,23 @@ final class TranscriptStore {
         load()
     }
 
-    func add(_ text: String) {
+    func add(
+        _ text: String,
+        targetApplication: String? = nil,
+        pasteMethod: String? = nil,
+        pasteSucceeded: Bool? = nil
+    ) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        entries.insert(TranscriptEntry(text: trimmed), at: 0)
+        entries.insert(
+            TranscriptEntry(
+                text: trimmed,
+                targetApplication: targetApplication,
+                pasteMethod: pasteMethod,
+                pasteSucceeded: pasteSucceeded
+            ),
+            at: 0
+        )
         if entries.count > maxEntries {
             entries = Array(entries.prefix(maxEntries))
         }

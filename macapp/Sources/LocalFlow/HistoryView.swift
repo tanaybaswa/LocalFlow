@@ -82,6 +82,22 @@ private struct TranscriptRow: View {
                 Text(entry.createdAt.formatted(date: .abbreviated, time: .shortened))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                if let target = entry.targetApplication {
+                    Text("• \(target)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if let method = entry.pasteMethod {
+                    Text("• \(method)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if let succeeded = entry.pasteSucceeded {
+                    Image(systemName: succeeded ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(succeeded ? .green : .orange)
+                        .help(succeeded ? "Paste delivered" : "Paste failed; transcript left on clipboard")
+                }
                 Spacer()
                 Button("Copy") {
                     NSPasteboard.general.clearContents()

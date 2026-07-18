@@ -1,82 +1,118 @@
 import AppKit
 import ApplicationServices
-import Carbon.HIToolbox
 
 enum PasteError: LocalizedError {
     case emptyText
+    case automationFailed(String)
 
     var errorDescription: String? {
         switch self {
         case .emptyText: return "Nothing to paste."
+        case .automationFailed(let detail):
+            return "System Events could not paste: \(detail). The transcript remains on the clipboard."
         }
     }
 }
 
-/// Paste transcript into the app that was focused when dictation started.
-///
-/// Notes/TextEdit often accept AX insert. Chrome, Slack, Cursor, VS Code, etc. need
-/// clipboard + ⌘V, and the target app must be frontmost — otherwise events land on LocalFlow.
+@MainActor
+final class PasteTarget {
+    let application: NSRunningApplication?
+    let focusedElement: AXUIElement?
+
+    var applicationName: String {
+        application?.localizedName ?? "focused app"
+    }
+
+    private init(application: NSRunningApplication?, focusedElement: AXUIElement?) {
+        self.application = application
+        self.focusedElement = focusedElement
+    }
+
+    static func capture() -> PasteTarget {
+        let localBundleID = Bundle.main.bundleIdentifier
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        let application = frontmost?.bundleIdentifier == localBundleID ? nil : frontmost
+
+        let systemWide = AXUIElementCreateSystemWide()
+        var focusedValue: CFTypeRef?
+        let focusedElement: AXUIElement?
+        if AXUIElementCopyAttributeValue(
+            systemWide,
+            kAXFocusedUIElementAttribute as CFString,
+            &focusedValue
+        ) == .success, let focusedValue {
+            focusedElement = (focusedValue as! AXUIElement)
+        } else {
+            focusedElement = nil
+        }
+
+        return PasteTarget(application: application, focusedElement: focusedElement)
+    }
+}
+
+struct PasteResult: Sendable {
+    let targetApplication: String
+    let method: String
+}
+
+/// Exactly one insertion path: clipboard → restore captured focus → System Events ⌘V.
 @MainActor
 final class PasteService {
-    func paste(_ text: String, into targetApp: NSRunningApplication?) async throws {
+    func paste(_ text: String, into target: PasteTarget?) async throws -> PasteResult {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw PasteError.emptyText }
 
         try await waitForModifiersClear()
-
-        // Critical: put focus back on the app the user was typing in.
-        await activateTarget(targetApp)
 
         let board = NSPasteboard.general
         let saved = snapshotPasteboard(board)
         board.clearContents()
         board.declareTypes([.string], owner: nil)
         board.setString(trimmed, forType: .string)
+        await restoreFocus(to: target)
         try await Task.sleep(nanoseconds: 120_000_000)
 
-        // 1) Native AX insert (Notes, TextEdit, many AppKit fields)
-        if Self.tryAXInsert(trimmed) {
-            NSLog("LocalFlow paste: AX insert OK into \(targetApp?.localizedName ?? "?")")
-            try await Task.sleep(nanoseconds: 350_000_000)
-            restorePasteboard(board, saved: saved)
-            return
+        do {
+            try Self.pasteOnceViaSystemEvents()
+        } catch {
+            // Leave the transcript on the clipboard so manual ⌘V still works.
+            throw error
         }
 
-        // 2) Universal path: clipboard ⌘V (Electron / browsers / most apps)
-        NSLog("LocalFlow paste: AX unsupported — using ⌘V into \(targetApp?.localizedName ?? "frontmost") pid=\(targetApp?.processIdentifier ?? -1)")
-        Self.postCommandVMaccyStyle()
-        try await Task.sleep(nanoseconds: 60_000_000)
-        _ = Self.pasteViaAppleScript(targetPID: targetApp?.processIdentifier)
-
-        // Electron apps are slow to read the pasteboard.
-        try await Task.sleep(nanoseconds: 700_000_000)
+        try await Task.sleep(nanoseconds: 900_000_000)
         restorePasteboard(board, saved: saved)
+
+        let appName = target?.applicationName
+            ?? NSWorkspace.shared.frontmostApplication?.localizedName
+            ?? "focused app"
+        NSLog("LocalFlow paste: one System Events paste delivered to \(appName)")
+        return PasteResult(targetApplication: appName, method: "System Events")
     }
 
-    private func activateTarget(_ app: NSRunningApplication?) async {
-        guard let app, !app.isTerminated else { return }
-        // Don't activate ourselves.
-        if app.bundleIdentifier == Bundle.main.bundleIdentifier { return }
+    private func restoreFocus(to target: PasteTarget?) async {
+        guard let target else { return }
 
-        // If the target is already frontmost, do NOT call activate().
-        // activate() often moves keyboard focus from a text field (e.g. Cursor chat)
-        // to the window chrome — then ⌘V lands nowhere useful.
-        if NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier {
-            NSLog("LocalFlow paste: \(app.localizedName ?? "app") already frontmost — preserving field focus")
-            try? await Task.sleep(nanoseconds: 40_000_000)
-            return
-        }
-
-        NSLog("LocalFlow paste: activating \(app.localizedName ?? "app")")
-        _ = app.activate()
-        // Wait until macOS reports it frontmost (or timeout).
-        for _ in 0..<25 {
-            if NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier {
-                break
+        if let app = target.application, !app.isTerminated {
+            let isFrontmost =
+                NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
+            if !isFrontmost {
+                _ = app.activate()
+                for _ in 0..<30 {
+                    if NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier {
+                        break
+                    }
+                    try? await Task.sleep(nanoseconds: 20_000_000)
+                }
             }
-            try? await Task.sleep(nanoseconds: 20_000_000)
         }
-        // Extra beat for focus / caret to settle inside the text field.
+
+        if let element = target.focusedElement {
+            _ = AXUIElementSetAttributeValue(
+                element,
+                kAXFocusedAttribute as CFString,
+                kCFBooleanTrue
+            )
+        }
         try? await Task.sleep(nanoseconds: 80_000_000)
     }
 
@@ -110,110 +146,22 @@ final class PasteService {
         }
     }
 
-    private static func tryAXInsert(_ text: String) -> Bool {
-        let systemWide = AXUIElementCreateSystemWide()
-        var focusedRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            systemWide,
-            kAXFocusedUIElementAttribute as CFString,
-            &focusedRef
-        ) == .success, let focusedRef else { return false }
-
-        let focused = focusedRef as! AXUIElement
-
-        // Must look like an editable field.
-        var roleRef: CFTypeRef?
-        if AXUIElementCopyAttributeValue(focused, kAXRoleAttribute as CFString, &roleRef) == .success,
-           let role = roleRef as? String {
-            let editableRoles: Set<String> = [
-                "AXTextField", "AXTextArea", "AXComboBox", "AXSearchField",
-            ]
-            // Many web fields report AXGroup / AXWebArea — skip AX insert for those.
-            if !editableRoles.contains(role) && role != "AXTextArea" {
-                // Still try selected-text; some native roles differ.
-            }
-        }
-
-        var selectedRef: CFTypeRef?
-        if AXUIElementCopyAttributeValue(focused, kAXSelectedTextAttribute as CFString, &selectedRef) == .success {
-            if AXUIElementSetAttributeValue(
-                focused,
-                kAXSelectedTextAttribute as CFString,
-                text as CFTypeRef
-            ) == .success {
-                return true
-            }
-        }
-
-        var valueRef: CFTypeRef?
-        if AXUIElementCopyAttributeValue(focused, kAXValueAttribute as CFString, &valueRef) == .success,
-           let existing = valueRef as? String {
-            // Avoid clobbering huge documents via full AXValue replace unless it looks like a field.
-            if existing.count < 20_000 {
-                if AXUIElementSetAttributeValue(
-                    focused,
-                    kAXValueAttribute as CFString,
-                    (existing + text) as CFTypeRef
-                ) == .success {
-                    return true
-                }
-            }
-        }
-        return false
-    }
-
-    private static func postCommandVMaccyStyle() {
-        let source = CGEventSource(stateID: .combinedSessionState)
-        source?.setLocalEventsFilterDuringSuppressionState(
-            [.permitLocalMouseEvents, .permitSystemDefinedEvents],
-            state: .eventSuppressionStateSuppressionInterval
-        )
-
-        let cmdFlag = CGEventFlags(rawValue: CGEventFlags.maskCommand.rawValue | 0x000008)
-        let keyV = CGKeyCode(kVK_ANSI_V)
-
-        guard
-            let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyV, keyDown: true),
-            let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyV, keyDown: false)
-        else { return }
-
-        keyDown.flags = cmdFlag
-        keyUp.flags = cmdFlag
-        // Session + annotated taps — both used by working clipboard managers.
-        keyDown.post(tap: .cgSessionEventTap)
-        keyUp.post(tap: .cgSessionEventTap)
-        keyDown.post(tap: .cgAnnotatedSessionEventTap)
-        keyUp.post(tap: .cgAnnotatedSessionEventTap)
-    }
-
-    @discardableResult
-    private static func pasteViaAppleScript(targetPID: pid_t?) -> Bool {
-        let script: String
-        if let pid = targetPID, pid > 0 {
-            script = """
-            tell application "System Events"
-                set procs to (every process whose unix id is \(pid))
-                if (count of procs) > 0 then
-                    set frontmost of item 1 of procs to true
-                    delay 0.05
-                end if
-                keystroke "v" using command down
-            end tell
-            """
-        } else {
-            script = """
-            tell application "System Events"
-                keystroke "v" using command down
-            end tell
-            """
-        }
+    private static func pasteOnceViaSystemEvents() throws {
+        let source = """
+        tell application "System Events"
+            keystroke "v" using command down
+        end tell
+        """
         var error: NSDictionary?
-        guard let appleScript = NSAppleScript(source: script) else { return false }
+        guard let appleScript = NSAppleScript(source: source) else {
+            throw PasteError.automationFailed("AppleScript could not be created")
+        }
         _ = appleScript.executeAndReturnError(&error)
         if let error {
             NSLog("LocalFlow AppleScript paste error: \(error)")
-            return false
+            let message = error[NSAppleScript.errorMessage] as? String
+                ?? error.description
+            throw PasteError.automationFailed(message)
         }
-        return true
     }
 }

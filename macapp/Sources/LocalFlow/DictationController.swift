@@ -40,8 +40,8 @@ final class DictationController {
     private let paste = PasteService()
     private let hotkey = HotkeyMonitor()
 
-    /// App that had focus when the user started holding Right ⌘.
-    private var targetApp: NSRunningApplication?
+    /// App and exact control that had focus when the user started holding Right ⌘.
+    private var pasteTarget: PasteTarget?
 
     init() {
         hotkey.delegate = self
@@ -78,7 +78,7 @@ final class DictationController {
                 ? "Ready — hold Right ⌘ to dictate"
                 : "Paused — enable from menu"
         case .recording:
-            let name = targetApp?.localizedName ?? "app"
+            let name = pasteTarget?.applicationName ?? "app"
             statusMessage = "Recording into \(name)… release Right ⌘"
         case .transcribing:
             statusMessage = "Transcribing…"
@@ -91,21 +91,6 @@ final class DictationController {
         }
     }
 
-    private func captureTargetApp() {
-        let front = NSWorkspace.shared.frontmostApplication
-        if let front, front.bundleIdentifier != Bundle.main.bundleIdentifier {
-            targetApp = front
-        } else if targetApp == nil || targetApp?.isTerminated == true {
-            // Fall back to any other running app that was recently active — keep last good target.
-            targetApp = NSWorkspace.shared.runningApplications.first {
-                $0.activationPolicy == .regular
-                    && $0.bundleIdentifier != Bundle.main.bundleIdentifier
-                    && !$0.isTerminated
-            }
-        }
-        NSLog("LocalFlow: target app = \(targetApp?.localizedName ?? "nil") (\(targetApp?.bundleIdentifier ?? "-"))")
-    }
-
     private func beginRecording() {
         guard enabled else { return }
         guard case .ready = state else { return }
@@ -114,7 +99,8 @@ final class DictationController {
             statusMessage = "Grant Microphone access in System Settings"
             return
         }
-        captureTargetApp()
+        pasteTarget = PasteTarget.capture()
+        NSLog("LocalFlow: captured paste target \(pasteTarget?.applicationName ?? "nil")")
         do {
             try recorder.start()
             state = .recording
@@ -132,20 +118,30 @@ final class DictationController {
         state = .transcribing
         refreshStatus()
 
-        let pasteTarget = targetApp
+        let target = pasteTarget
 
         Task {
             do {
                 let wav = try recorder.stop()
                 let text = try await transcription.transcribe(wavData: wav)
                 lastTranscript = text
-                transcripts.add(text)
                 do {
-                    try await paste.paste(text, into: pasteTarget)
+                    let result = try await paste.paste(text, into: target)
+                    transcripts.add(
+                        text,
+                        targetApplication: result.targetApplication,
+                        pasteMethod: result.method,
+                        pasteSucceeded: true
+                    )
                     state = .ready
-                    let dest = pasteTarget?.localizedName ?? "app"
-                    statusMessage = "Pasted into \(dest): \(text.prefix(50))\(text.count > 50 ? "…" : "")"
+                    statusMessage = "Pasted once via \(result.method) into \(result.targetApplication)"
                 } catch {
+                    transcripts.add(
+                        text,
+                        targetApplication: target?.applicationName,
+                        pasteMethod: "System Events",
+                        pasteSucceeded: false
+                    )
                     state = .ready
                     statusMessage = "Saved (paste failed): \(error.localizedDescription)"
                 }
