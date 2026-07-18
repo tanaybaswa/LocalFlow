@@ -44,8 +44,8 @@ brew install whisper-cpp ffmpeg
 ### 2. Clone & download the model (~2.9 GB)
 
 ```bash
-git clone https://github.com/tanaybaswa/local-speech-to-text.git
-cd local-speech-to-text
+git clone https://github.com/tanaybaswa/LocalFlow.git
+cd LocalFlow
 ./scripts/download-model.sh   # → models/ggml-large-v3.bin
 ```
 
