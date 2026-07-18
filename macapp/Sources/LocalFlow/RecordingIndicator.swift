@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Floating non-activating pill shown while recording.
+/// Floating non-activating pill shown while recording — white with live amplitude bars.
 @MainActor
 final class RecordingIndicator {
     static let shared = RecordingIndicator()
@@ -10,10 +10,12 @@ final class RecordingIndicator {
     private var hosting: NSHostingView<IndicatorView>?
 
     func show() {
+        RecordingLevels.shared.start()
+
         if panel == nil {
-            let view = IndicatorView()
+            let view = IndicatorView(levels: RecordingLevels.shared)
             let host = NSHostingView(rootView: view)
-            host.frame = NSRect(x: 0, y: 0, width: 160, height: 40)
+            host.frame = NSRect(x: 0, y: 0, width: 168, height: 44)
 
             let p = NSPanel(
                 contentRect: host.frame,
@@ -30,7 +32,10 @@ final class RecordingIndicator {
             p.contentView = host
             panel = p
             hosting = host
+        } else {
+            hosting?.rootView = IndicatorView(levels: RecordingLevels.shared)
         }
+
         guard let panel else { return }
         if let screen = NSScreen.main {
             let frame = screen.visibleFrame
@@ -43,25 +48,58 @@ final class RecordingIndicator {
     }
 
     func hide() {
+        RecordingLevels.shared.stop()
         panel?.orderOut(nil)
     }
 }
 
 private struct IndicatorView: View {
+    @Bindable var levels: RecordingLevels
+
     var body: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(Color.red)
-                .frame(width: 10, height: 10)
-            Text("Recording")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+        HStack(spacing: 10) {
+            WaveformView(bars: levels.bars)
+                .frame(width: 88, height: 22)
+
+            Text("Listening")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Color(white: 0.22))
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 11)
         .background(
             Capsule()
-                .fill(Color.black.opacity(0.82))
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.18), radius: 10, y: 3)
         )
+        .overlay(
+            Capsule()
+                .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
+        )
+    }
+}
+
+private struct WaveformView: View {
+    let bars: [CGFloat]
+
+    var body: some View {
+        GeometryReader { geo in
+            let count = max(bars.count, 1)
+            let spacing: CGFloat = 2
+            let barWidth = max(2, (geo.size.width - spacing * CGFloat(count - 1)) / CGFloat(count))
+
+            HStack(alignment: .center, spacing: spacing) {
+                ForEach(Array(bars.enumerated()), id: \.offset) { _, level in
+                    RoundedRectangle(cornerRadius: barWidth / 2, style: .continuous)
+                        .fill(Color(white: 0.18))
+                        .frame(
+                            width: barWidth,
+                            height: max(3, geo.size.height * level)
+                        )
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .animation(.easeOut(duration: 0.06), value: bars)
+        }
     }
 }

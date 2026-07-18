@@ -79,11 +79,15 @@ final class AudioRecorder: @unchecked Sendable {
         guard frameCount > 0 else { return }
 
         var mono = [Int16](repeating: 0, count: frameCount)
+        var sumSquares: Float = 0
 
         if let int16 = buffer.int16ChannelData {
             let ch0 = int16[0]
             for i in 0..<frameCount {
-                mono[i] = ch0[i]
+                let s = ch0[i]
+                mono[i] = s
+                let f = Float(s) / Float(Int16.max)
+                sumSquares += f * f
             }
         } else if let float = buffer.floatChannelData {
             let ch0 = float[0]
@@ -99,10 +103,14 @@ final class AudioRecorder: @unchecked Sendable {
                 }
                 let clipped = max(-1.0, min(1.0, sample))
                 mono[i] = Int16(clipped * Float(Int16.max))
+                sumSquares += clipped * clipped
             }
         } else {
             return
         }
+
+        let rms = sqrt(sumSquares / Float(frameCount))
+        AudioLevelMeter.shared.pushRMS(rms)
 
         lock.lock()
         if isRecording {
