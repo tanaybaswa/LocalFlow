@@ -39,7 +39,7 @@ final class RecordingLevels {
     static let shared = RecordingLevels()
 
     /// Newest bar on the right; smoothed RMS envelope.
-    private(set) var bars: [CGFloat] = Array(repeating: 0.08, count: 16)
+    private(set) var bars: [CGFloat] = Array(repeating: 0.08, count: 20)
     private(set) var isActive = false
 
     private var displayLink: Timer?

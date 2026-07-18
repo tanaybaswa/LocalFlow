@@ -1,14 +1,15 @@
 import AppKit
-import SwiftUI
 
-/// Floating non-activating pill shown while recording — dark navy with luminous amplitude bars.
-/// Drawn entirely with AppKit so NSHostingView cannot leave a gray rectangular fill.
+/// Floating non-activating pill — white Glow Pulse waveform (lilac/purple brand).
+/// Drawn in AppKit so the panel never shows a gray rectangular chrome.
 @MainActor
 final class RecordingIndicator {
     static let shared = RecordingIndicator()
 
-    private static let panelSize = NSSize(width: 160, height: 64)
-    private static let pillSize = NSSize(width: 140, height: 46)
+    /// Extra room for soft purple glow outside the pill.
+    private static let panelSize = NSSize(width: 156, height: 48)
+    /// Shorter, waveform-only pill.
+    private static let pillSize = NSSize(width: 132, height: 34)
 
     private var panel: NSPanel?
     private var pillView: WaveformPillView?
@@ -64,7 +65,7 @@ final class RecordingIndicator {
         if let screen = NSScreen.main {
             let frame = screen.visibleFrame
             let x = frame.midX - size.width / 2
-            let y = frame.minY + 24
+            let y = frame.minY + 28
             p.setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
         }
         p.orderFrontRegardless()
@@ -83,6 +84,15 @@ final class RecordingIndicator {
         panel = nil
         pillView = nil
     }
+}
+
+// MARK: - Brand palette (#7C3AED family)
+
+private enum Brand {
+    static let violet = NSColor(calibratedRed: 0.486, green: 0.227, blue: 0.929, alpha: 1) // #7C3AED
+    static let soft = NSColor(calibratedRed: 0.655, green: 0.545, blue: 0.980, alpha: 1)   // #A78BFA
+    static let lilac = NSColor(calibratedRed: 0.769, green: 0.710, blue: 0.992, alpha: 1)  // #C4B5FD
+    static let mist = NSColor(calibratedRed: 0.914, green: 0.835, blue: 1.0, alpha: 1)     // #E9D5FF
 }
 
 // MARK: - Views
@@ -110,11 +120,11 @@ private final class ClearView: NSView {
 }
 
 private final class WaveformPillView: NSView {
-    var bars: [CGFloat] = Array(repeating: 0.08, count: 16) {
+    var bars: [CGFloat] = Array(repeating: 0.08, count: 20) {
         didSet { needsDisplay = true }
     }
 
-    private let cornerRadius: CGFloat = 12
+    private let cornerRadius: CGFloat = 17
 
     override var isOpaque: Bool { false }
     override var wantsDefaultClipping: Bool { false }
@@ -122,12 +132,13 @@ private final class WaveformPillView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = false
-        // Soft drop shadow that follows the rounded path (not the panel bounds).
+        // Soft lilac glow following the rounded pill (not a rectangular window shadow).
         shadow = {
             let s = NSShadow()
-            s.shadowColor = NSColor.black.withAlphaComponent(0.40)
-            s.shadowBlurRadius = 10
-            s.shadowOffset = NSSize(width: 0, height: -3)
+            s.shadowColor = Brand.violet.withAlphaComponent(0.26)
+            // ~25% tighter than previous blur (14 → 10.5)
+            s.shadowBlurRadius = 10.5
+            s.shadowOffset = NSSize(width: 0, height: 0)
             return s
         }()
     }
@@ -142,52 +153,63 @@ private final class WaveformPillView: NSView {
         ctx.saveGState()
         defer { ctx.restoreGState() }
 
-        let pill = bounds.insetBy(dx: 0.5, dy: 0.5)
+        let pill = bounds.insetBy(dx: 1.0, dy: 1.0)
         let path = NSBezierPath(roundedRect: pill, xRadius: cornerRadius, yRadius: cornerRadius)
 
-        // Icon-matched navy fill.
-        let navyTop = NSColor(calibratedRed: 0.08, green: 0.22, blue: 0.26, alpha: 1)
-        let navyBottom = NSColor(calibratedRed: 0.04, green: 0.14, blue: 0.18, alpha: 1)
-        let gradient = NSGradient(starting: navyTop, ending: navyBottom)
-        gradient?.draw(in: path, angle: 270)
+        // Clean white fill.
+        NSColor.white.setFill()
+        path.fill()
 
-        // Hairline edge.
-        NSColor.white.withAlphaComponent(0.08).setStroke()
-        path.lineWidth = 0.5
+        // Subtle purple outline.
+        Brand.lilac.withAlphaComponent(0.85).setStroke()
+        path.lineWidth = 1.0
         path.stroke()
 
-        drawWaveform(in: pill.insetBy(dx: 16, dy: 12))
+        // Inner hairline for polish.
+        let inner = pill.insetBy(dx: 0.5, dy: 0.5)
+        let innerPath = NSBezierPath(roundedRect: inner, xRadius: cornerRadius - 0.5, yRadius: cornerRadius - 0.5)
+        Brand.mist.withAlphaComponent(0.55).setStroke()
+        innerPath.lineWidth = 0.5
+        innerPath.stroke()
+
+        drawWaveform(in: pill.insetBy(dx: 18, dy: 8))
     }
 
     private func drawWaveform(in rect: NSRect) {
         let count = max(bars.count, 1)
-        let spacing: CGFloat = 3.5
-        let barWidth: CGFloat = 1.75
+        let spacing: CGFloat = 2.75
+        let barWidth: CGFloat = 2.25
         let totalWidth = CGFloat(count) * barWidth + CGFloat(count - 1) * spacing
         var x = rect.midX - totalWidth / 2
 
-        let mintHot = NSColor(calibratedRed: 0.78, green: 1.0, blue: 0.96, alpha: 1)
-        let mint = NSColor(calibratedRed: 0.55, green: 0.95, blue: 0.88, alpha: 1)
-        let mintDim = NSColor(calibratedRed: 0.28, green: 0.62, blue: 0.58, alpha: 1)
-
         for level in bars {
-            let height = max(3, rect.height * level)
+            let height = max(2.5, rect.height * level)
             let barRect = NSRect(
                 x: x,
                 y: rect.midY - height / 2,
                 width: barWidth,
                 height: height
             )
-            let barPath = NSBezierPath(roundedRect: barRect, xRadius: barWidth / 2, yRadius: barWidth / 2)
+            let barPath = NSBezierPath(
+                roundedRect: barRect,
+                xRadius: barWidth / 2,
+                yRadius: barWidth / 2
+            )
 
-            // Soft glow behind the bar.
-            if level > 0.1 {
-                NSColor(calibratedRed: 0.55, green: 0.95, blue: 0.88, alpha: 0.35 * level).setFill()
-                let glow = barRect.insetBy(dx: -1.2, dy: -1.2)
-                NSBezierPath(roundedRect: glow, xRadius: (barWidth + 2.4) / 2, yRadius: (barWidth + 2.4) / 2).fill()
+            // Soft purple glow bloom behind louder bars.
+            if level > 0.12 {
+                Brand.soft.withAlphaComponent(0.22 * level).setFill()
+                let glow = barRect.insetBy(dx: -1.5, dy: -1.5)
+                NSBezierPath(
+                    roundedRect: glow,
+                    xRadius: (barWidth + 3) / 2,
+                    yRadius: (barWidth + 3) / 2
+                ).fill()
             }
 
-            NSGradient(colors: [mintHot, mint, mintDim])?.draw(in: barPath, angle: 270)
+            NSGradient(colors: [Brand.lilac, Brand.soft, Brand.violet])?
+                .draw(in: barPath, angle: 270)
+
             x += barWidth + spacing
         }
     }
