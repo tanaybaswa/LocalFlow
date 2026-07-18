@@ -56,7 +56,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         win.setContentSize(NSSize(width: 480, height: 560))
         win.center()
         win.isReleasedWhenClosed = false
-        win.makeKeyAndOrderFront(nil)
+        // Show history without forcing LocalFlow to steal keyboard focus forever.
+        win.orderFront(nil)
         historyWindow = win
     }
 }
