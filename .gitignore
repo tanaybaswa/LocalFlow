@@ -17,6 +17,10 @@ outputs/
 *.json
 *.csv
 
+# Secrets / local env
+.env
+.env.*
+
 # Python
 .venv/
 __pycache__/
