@@ -4,6 +4,10 @@
 
 Built on [whisper.cpp](https://github.com/ggml-org/whisper.cpp) + OpenAI Whisper **large-v3**, tuned for Apple Silicon (Metal). On an M5 Max it runs about **12–17× realtime**.
 
+## Demo
+
+Watch a quick walkthrough: **[LocalFlow demo (Loom)](https://www.loom.com/share/38975bfa994442c8a5872bc2e6ebad89)**
+
 ---
 
 ## Why it exists
@@ -24,7 +28,7 @@ Cloud dictation is convenient — and it uploads your voice. LocalFlow keeps spe
 | | |
 |---|---|
 | **Push-to-talk** | Hold **Right ⌘** to record, release to transcribe & paste |
-| **Live waveform** | Dark navy pill with mint amplitude bars while you speak |
+| **Live waveform** | White Glow Pulse pill with lilac/purple amplitude bars while you speak |
 | **Cross-app paste** | Clipboard + System Events ⌘V into the app you started in |
 | **History** | Dock window with past transcripts and paste diagnostics |
 | **Also included** | Gradio browser UI + CLI for file transcription |
