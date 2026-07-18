@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalFlow — Product &amp; Engineering Handoff</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+/* report-base.css — Minimal report layout system. Include in full in every report. */
+
+:root {
+  --text-primary: #1a1a1a;
+  --text-secondary: #5c5c5c;
+  --text-muted: #8a8a8a;
+  --border: #e5e5e5;
+  --border-strong: #cccccc;
+  --bg: #ffffff;
+  --bg-subtle: #fafafa;
+  --accent: #0f766e;
+  --accent-muted: rgba(15, 118, 110, 0.08);
+
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+
+  --max-width: 900px;
+  --page-padding: 48px;
+  --section-gap: 56px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--bg);
+  line-height: 1.6;
+}
+
+.report {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 64px var(--page-padding) 96px;
+}
+
+/* === Title block === */
+.report-header {
+  margin-bottom: var(--section-gap);
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.report-header h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin-bottom: 16px;
+}
+
+.report-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.report-meta dt {
+  font-weight: 500;
+  color: var(--text-muted);
+  display: inline;
+}
+
+.report-meta dt::after {
+  content: ': ';
+}
+
+.report-meta dd {
+  display: inline;
+  margin: 0;
+}
+
+.report-meta dd:not(:last-child)::after {
+  content: '';
+}
+
+/* === Sections === */
+section {
+  margin-bottom: var(--section-gap);
+}
+
+section h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+section h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  margin: 24px 0 8px;
+}
+
+p {
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+p.lead {
+  font-size: 1.0625rem;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+ul, ol {
+  margin: 0 0 16px 1.25rem;
+}
+
+li {
+  margin-bottom: 6px;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* === Metrics === */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 24px;
+  margin: 24px 0;
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.metric {
+  text-align: left;
+}
+
+.metric-value {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.metric-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.metric-delta {
+  font-size: 0.8125rem;
+  margin-top: 2px;
+}
+
+.metric-delta.positive { color: #15803d; }
+.metric-delta.negative { color: #b91c1c; }
+
+/* === Tables === */
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+thead th {
+  text-align: left;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-bottom: 2px solid var(--border-strong);
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+td.num, th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* === Badges === */
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  white-space: nowrap;
+}
+
+.badge.critical { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+.badge.high     { border-color: #fdba74; background: #fff7ed; color: #9a3412; }
+.badge.medium   { border-color: #fde047; background: #fefce8; color: #854d0e; }
+.badge.low      { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.badge.info     { border-color: #bfdbfe; background: #eff6ff; color: #1e40af; }
+.badge.pass     { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.badge.fail     { border-color: #fca5a5; background: #fef2f2; color: #991b1b; }
+
+/* === Figures & charts === */
+figure {
+  margin: 24px 0;
+}
+
+.figure-chart {
+  position: relative;
+  height: 320px;
+  margin: 8px 0 4px;
+}
+
+figcaption {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+figcaption .source {
+  color: var(--text-muted);
+}
+
+/* === Callouts === */
+.callout {
+  border-left: 3px solid var(--accent);
+  padding: 12px 16px;
+  margin: 20px 0;
+  background: var(--accent-muted);
+  font-size: 0.9375rem;
+}
+
+.callout.warning {
+  border-left-color: #d97706;
+  background: #fffbeb;
+}
+
+.callout.danger {
+  border-left-color: #dc2626;
+  background: #fef2f2;
+}
+
+/* === Code / pre === */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.8125em;
+  background: var(--bg-subtle);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 16px 0;
+  line-height: 1.5;
+}
+
+/* === Appendix === */
+.appendix {
+  margin-top: 64px;
+  padding-top: 32px;
+  border-top: 1px solid var(--border);
+}
+
+.appendix h2 {
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+/* === Footer === */
+.report-footer {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* === Print === */
+@media print {
+  body { background: white; }
+  .report { padding: 0; max-width: none; }
+  section { page-break-inside: avoid; }
+  figure { page-break-inside: avoid; }
+  .metric-grid { page-break-inside: avoid; }
+  a { color: inherit; text-decoration: none; }
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+  </style>
+</head>
+<body>
+  <article class="report">
+
+    <header class="report-header">
+      <h1>LocalFlow — private dictation on your Mac</h1>
+      <dl class="report-meta">
+        <dt>Date</dt><dd>July 18, 2026</dd>
+        <dt>Version</dt><dd>0.1.0</dd>
+        <dt>Prepared by</dt><dd>Tanay Baswa</dd>
+        <dt>Repo</dt><dd>local-speech-to-text</dd>
+        <dt>Audience</dt><dd>Mixed — product overview + engineering handoff</dd>
+      </dl>
+    </header>
+
+    <!-- === SECTION: Executive Summary === -->
+    <section id="summary">
+      <h2>In plain English</h2>
+      <p class="lead">
+        LocalFlow lets you talk into any text field on your Mac and have the words appear —
+        without sending your voice to the cloud. Hold the Right ⌘ key, speak, release.
+        A local Whisper model turns speech into text and pastes it where you were typing.
+      </p>
+      <p>
+        That matters because everyday dictation tools often trade convenience for privacy:
+        audio leaves your machine, and you depend on a network and a vendor. LocalFlow keeps
+        audio on-device, runs at well above realtime on Apple Silicon, and behaves like a
+        system utility rather than another chat window.
+      </p>
+      <p>
+        This document is also the handoff for the next developer: what shipped, why key
+        decisions were made, where files live, and what to build next.
+      </p>
+    </section>
+
+    <!-- === SECTION: Why it matters === -->
+    <section id="why">
+      <h2>Why this is important</h2>
+      <ul>
+        <li><strong>Privacy by default.</strong> Microphone audio is recorded, transcribed, and discarded locally. Nothing is uploaded for inference.</li>
+        <li><strong>Works in any app.</strong> Slack, Cursor, browsers, Notes — wherever the caret is, the transcript pastes there.</li>
+        <li><strong>Speed that feels native.</strong> On an M5 Max, Whisper large-v3 sustained roughly 12–17× realtime in file benchmarks — faster than speaking for typical clips.</li>
+        <li><strong>Foundation for a product.</strong> The hard parts (warm local model, global hotkey, cross-app paste, permissions) are solved enough to iterate on UX rather than infrastructure.</li>
+      </ul>
+    </section>
+
+    <!-- === SECTION: Metrics === -->
+    <section id="metrics">
+      <h2>At a glance</h2>
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-value">large-v3</div>
+          <div class="metric-label">Whisper model (GGML)</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">2.9 GB</div>
+          <div class="metric-label">Model on disk</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">~15×</div>
+          <div class="metric-label">Median realtime (M5 Max)</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">Right ⌘</div>
+          <div class="metric-label">Push-to-talk hotkey</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- === SECTION: What shipped === -->
+    <section id="shipped">
+      <h2>What we built</h2>
+
+      <h3>For the person using it</h3>
+      <ol>
+        <li>Launch LocalFlow from the Dock (menu bar waveform icon).</li>
+        <li>Grant Microphone and Accessibility when asked.</li>
+        <li>Wait until status says ready (Whisper loads once into a local server).</li>
+        <li>Click any text field → hold <strong>Right ⌘</strong> → speak → release.</li>
+        <li>Text pastes in place. History lives in the Dock window. Cancel mid-hold with any other key.</li>
+      </ol>
+      <p>
+        While recording, a floating navy pill shows a live mint waveform driven by microphone
+        amplitude (icon-matched colors). No “Listening” label — waveform only.
+      </p>
+
+      <h3>Product surfaces</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Surface</th>
+              <th>What it does</th>
+              <th>Path / how to run</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>LocalFlow.app</td>
+              <td>Menu-bar dictation + history window</td>
+              <td><code>cd macapp && ./build-app.sh && open dist/LocalFlow.app</code></td>
+            </tr>
+            <tr>
+              <td>Gradio UI</td>
+              <td>Browser record / upload → transcribe</td>
+              <td><code>./scripts/run-ui.sh</code> → http://127.0.0.1:7860</td>
+            </tr>
+            <tr>
+              <td>CLI</td>
+              <td>File → <code>.txt</code> / <code>.srt</code> / <code>.json</code></td>
+              <td><code>./scripts/transcribe.sh path/to/audio.wav</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- === SECTION: Chart === -->
+    <section id="throughput">
+      <h2>Performance evidence</h2>
+      <p>
+        File transcription throughput on Apple M5 Max (36&nbsp;GB) with Metal-backed whisper.cpp
+        and <code>ggml-large-v3.bin</code>. Higher × realtime means wall clock is a smaller
+        fraction of audio duration.
+      </p>
+      <figure>
+        <div class="figure-chart">
+          <canvas id="chart-xrealtime"></canvas>
+        </div>
+        <figcaption>
+          Figure 1. Throughput (× realtime) by workload sample.
+          <span class="source">Source: reports/local-stt-eval-benchmark-2026-07-18.html</span>
+        </figcaption>
+      </figure>
+      <p>
+        Full methodology and raw timings live in that benchmark report. LocalFlow’s interactive
+        path keeps <code>whisper-server</code> warm, so short utterances avoid cold-start cost
+        that file CLI runs paid on every invocation.
+      </p>
+    </section>
+
+    <!-- === SECTION: Architecture === -->
+    <section id="architecture">
+      <h2>How it works (engineering)</h2>
+      <p>
+        Bundle ID <code>com.tanaybaswa.localflow</code>. Swift / SwiftUI menu-bar app (SPM),
+        ad-hoc signed <code>.app</code> via <code>macapp/build-app.sh</code>. Sandbox off —
+        Accessibility, Automation, and a local HTTP sidecar require it.
+      </p>
+
+      <h3>Runtime pipeline</h3>
+      <ol>
+        <li><strong>Hotkey</strong> — <code>HotkeyMonitor</code> watches Right ⌘ (keycode 54). Hold starts capture; release finishes; other keys cancel.</li>
+        <li><strong>Focus capture</strong> — At hold start, <code>PasteTarget.capture()</code> stores the frontmost app and focused AX element (ignores LocalFlow itself).</li>
+        <li><strong>Audio</strong> — <code>AudioRecorder</code> taps <code>AVAudioEngine</code>, writes mono PCM16 WAV, and pushes RMS to <code>AudioLevelMeter</code> for the HUD.</li>
+        <li><strong>Indicator</strong> — <code>RecordingIndicator</code> is a borderless non-activating <code>NSPanel</code> drawn in pure AppKit (no <code>NSHostingView</code> gray fill). Bars from <code>RecordingLevels</code> (~30&nbsp;fps).</li>
+        <li><strong>Inference</strong> — <code>SidecarManager</code> keeps Homebrew <code>whisper-server</code> on <code>127.0.0.1:12321</code>. <code>TranscriptionService</code> <code>POST</code>s multipart WAV to <code>/inference</code>.</li>
+        <li><strong>Paste</strong> — Single path only: put text on clipboard, restore captured app/AX focus, one System Events <code>keystroke "v" using command down</code>. No AX insert / CGEvent / multi-path fan-out (those caused triple-pastes and focus stealing).</li>
+        <li><strong>History</strong> — <code>TranscriptStore</code> records text, target app, paste method, and success for the Dock window.</li>
+      </ol>
+
+      <h3>Module map</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Responsibility</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>DictationController.swift</code></td><td>State machine: ready → recording → transcribing → paste</td></tr>
+            <tr><td><code>SidecarManager.swift</code></td><td>Spawn / health of whisper-server</td></tr>
+            <tr><td><code>AudioRecorder.swift</code></td><td>Mic capture + RMS metering</td></tr>
+            <tr><td><code>RecordingLevels.swift</code></td><td>Thread-safe meter + bar ring buffer</td></tr>
+            <tr><td><code>RecordingIndicator.swift</code></td><td>Floating waveform pill (AppKit)</td></tr>
+            <tr><td><code>PasteService.swift</code></td><td>Clipboard + System Events paste</td></tr>
+            <tr><td><code>HotkeyMonitor.swift</code></td><td>Global Right ⌘ hold/release/cancel</td></tr>
+            <tr><td><code>AppPaths.swift</code></td><td>Model / server / project root resolution</td></tr>
+            <tr><td><code>StatusItemController.swift</code></td><td>Menu bar SF Symbol + menu</td></tr>
+            <tr><td><code>HistoryView.swift</code> / <code>TranscriptStore.swift</code></td><td>Dock history UI + persistence</td></tr>
+            <tr><td><code>Permissions*.swift</code></td><td>Mic / Accessibility / Automation prompts</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- === SECTION: Decisions === -->
+    <section id="decisions">
+      <h2>Key decisions (do not casually reverse)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Decision</th>
+              <th>Why</th>
+              <th>Risk if reversed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Whisper <strong>large-v3</strong> full GGML (~2.9&nbsp;GB)</td>
+              <td>Quality ceiling; still ≫ realtime on M5 Max</td>
+              <td>Smaller models save disk but may hurt accuracy for product demos</td>
+            </tr>
+            <tr>
+              <td>Warm <code>whisper-server</code> sidecar</td>
+              <td>Avoid cold load on every utterance</td>
+              <td>Spawning CLI per utterance feels sluggish</td>
+            </tr>
+            <tr>
+              <td><strong>One</strong> paste path (System Events ⌘V)</td>
+              <td>Multi-path delivery triple-pasted into ChatGPT/Claude; AX prompt spam with ad-hoc builds</td>
+              <td>Duplicate text; focus races; permission prompt fatigue</td>
+            </tr>
+            <tr>
+              <td>Capture paste target at <em>record start</em></td>
+              <td>Release may briefly focus LocalFlow or another window</td>
+              <td>Paste lands in the wrong app</td>
+            </tr>
+            <tr>
+              <td>AppKit HUD, not SwiftUI hosting</td>
+              <td><code>NSHostingView</code> painted a gray rectangle around the rounded pill</td>
+              <td>Visible chrome around the indicator</td>
+            </tr>
+            <tr>
+              <td>Right ⌘ only (not Left ⌘)</td>
+              <td>Leaves Left ⌘ free for system shortcuts</td>
+              <td>Conflicts with app menus / shortcuts</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- === SECTION: Disk & deps === -->
+    <section id="disk">
+      <h2>Disk, dependencies, overrides</h2>
+      <p>
+        Model file (the large artifact):
+        <code>models/ggml-large-v3.bin</code> under the repo root
+        (<code>…/local-speech-to-text/models/</code>) — about <strong>2.9&nbsp;GB</strong>.
+        Downloaded via <code>./scripts/download-model.sh</code> from
+        <code>ggerganov/whisper.cpp</code> on Hugging Face. LocalFlow resolves it through
+        <code>AppPaths.modelURL</code> (override with <code>LOCALFLOW_MODEL</code> /
+        <code>LOCALFLOW_ROOT</code>).
+      </p>
+      <p>
+        Runtime deps: Homebrew <code>whisper-cpp</code> (<code>whisper-server</code>) and
+        <code>ffmpeg</code> (server <code>--convert</code>). Gradio UI uses <code>uv sync</code>.
+      </p>
+      <div class="callout">
+        On a machine with ~1.6&nbsp;TB free, 2.9&nbsp;GB is not a capacity concern. Treat it as
+        a known fixed cost of full large-v3 quality.
+      </div>
+    </section>
+
+    <!-- === SECTION: Permissions === -->
+    <section id="permissions">
+      <h2>Permissions checklist</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Permission</th>
+              <th>Needed for</th>
+              <th>If denied</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Microphone</td>
+              <td>Recording while holding Right ⌘</td>
+              <td>Cannot start capture</td>
+            </tr>
+            <tr>
+              <td>Accessibility</td>
+              <td>Global hotkey + reading focused element</td>
+              <td>Hotkey / target capture unreliable</td>
+            </tr>
+            <tr>
+              <td>Automation → System Events</td>
+              <td>⌘V paste into the target app</td>
+              <td>Text stays on clipboard only</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Ad-hoc signing means macOS may re-prompt Accessibility after rebuilds that change the
+        code signature. Prefer stable signing for daily use, or re-toggle LocalFlow in
+        System Settings → Privacy &amp; Security → Accessibility.
+      </p>
+    </section>
+
+    <!-- === SECTION: Next work === -->
+    <section id="next">
+      <h2>Handoff — suggested next work</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Priority</th>
+              <th>Item</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="badge high">High</span></td>
+              <td>Developer ID signing + notarization</td>
+              <td>Reduce Gatekeeper / Accessibility re-grant friction</td>
+            </tr>
+            <tr>
+              <td><span class="badge high">High</span></td>
+              <td>Bundle or document model install UX</td>
+              <td>Today assumes <code>models/</code> exists beside the app’s project root</td>
+            </tr>
+            <tr>
+              <td><span class="badge medium">Medium</span></td>
+              <td>Configurable hotkey / language</td>
+              <td>Right ⌘ and auto language are hard-coded defaults</td>
+            </tr>
+            <tr>
+              <td><span class="badge medium">Medium</span></td>
+              <td>WER / accuracy eval</td>
+              <td>Throughput measured; quality is qualitative spot-check only</td>
+            </tr>
+            <tr>
+              <td><span class="badge medium">Medium</span></td>
+              <td>Optional smaller model profile</td>
+              <td>Trade disk / RAM for machines with less free space</td>
+            </tr>
+            <tr>
+              <td><span class="badge low">Low</span></td>
+              <td>DMG + download landing page</td>
+              <td>Ship scaffold exists in mac-app-ship skill; not wired yet</td>
+            </tr>
+            <tr>
+              <td><span class="badge info">Watch</span></td>
+              <td>Paste edge cases</td>
+              <td>Apps that block synthetic ⌘V; secure fields; Electron focus quirks</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- === SECTION: Runbook === -->
+    <section id="runbook">
+      <h2>Dev runbook</h2>
+<pre>cd macapp
+./build-app.sh
+pkill -x LocalFlow; open dist/LocalFlow.app
+
+# Icon after master PNG change
+./make-icon.sh   # master: Resources/icon-source/master-1024.png
+
+# Model
+./scripts/download-model.sh   # from repo root → models/ggml-large-v3.bin
+</pre>
+      <p>
+        Current main tip: <code>3162f99</code> — app icon + live amplitude recording pill
+        (on top of paste-fix LocalFlow). Branch historically:
+        <code>cursor/localflow-macos-dictation</code> tracking <code>origin/main</code>.
+      </p>
+    </section>
+
+    <!-- === SECTION: Appendix === -->
+    <section id="appendix" class="appendix">
+      <h2>Appendix</h2>
+      <h3>Related docs in repo</h3>
+      <ul>
+        <li><code>README.md</code> — project entry</li>
+        <li><code>macapp/README.md</code> — LocalFlow architecture (paste description may lag; prefer this handoff for paste)</li>
+        <li><code>reports/local-stt-eval-benchmark-2026-07-18.html</code> — throughput eval</li>
+        <li><code>macapp/docs/phases/</code> — phase notes</li>
+      </ul>
+      <h3>Glossary</h3>
+      <ul>
+        <li><strong>GGML</strong> — quantized / binary format used by whisper.cpp</li>
+        <li><strong>× realtime</strong> — audio duration ÷ wall time (higher is faster)</li>
+        <li><strong>AX</strong> — macOS Accessibility API (focused UI element)</li>
+        <li><strong>Sidecar</strong> — long-lived local <code>whisper-server</code> process</li>
+      </ul>
+    </section>
+
+    <footer class="report-footer">
+      <p>LocalFlow · Product &amp; engineering handoff · July 18, 2026 · Internal</p>
+    </footer>
+
+  </article>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script>
+    Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = '#5c5c5c';
+    Chart.defaults.plugins.legend.labels.boxWidth = 12;
+    Chart.defaults.plugins.legend.labels.padding = 16;
+    Chart.defaults.scale.grid.color = '#f0f0f0';
+    Chart.defaults.scale.grid.drawBorder = false;
+    Chart.defaults.scale.ticks.padding = 8;
+
+    new Chart(document.getElementById('chart-xrealtime'), {
+      type: 'bar',
+      data: {
+        labels: [
+          '3b1b lecture (10m)',
+          '3b1b lecture (short)',
+          'Lex podcast (15m)',
+          'Fireship tutorial'
+        ],
+        datasets: [{
+          label: '× realtime',
+          data: [17.53, 15.2, 14.6, 11.6],
+          backgroundColor: '#0f766e',
+          borderRadius: 2,
+          maxBarThickness: 48,
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: 'Throughput by workload (× realtime)',
+            color: '#1a1a1a',
+            font: { size: 13, weight: '600' }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Workload' }
+          },
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: '× realtime (higher = faster)' }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
